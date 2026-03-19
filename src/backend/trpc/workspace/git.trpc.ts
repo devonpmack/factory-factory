@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { isPathSafe } from '@/backend/lib/file-helpers';
 import { getMergeBase, parseGitStatusOutput } from '@/backend/lib/git-helpers';
@@ -215,5 +216,116 @@ export const workspaceGitRouter = router({
       }
 
       return { diff: result.stdout };
+    }),
+
+  // Merge workspace branch directly into the default branch (no PR)
+  mergeToMain: publicProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const logger = getLogger(ctx);
+      const { workspace, worktreePath } = await getWorkspaceWithProjectAndWorktreeOrThrow(
+        input.workspaceId
+      );
+
+      const branchName = workspace.branchName;
+      if (!branchName) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Workspace has no branch name',
+        });
+      }
+
+      const defaultBranch = workspace.project?.defaultBranch ?? 'main';
+      const repoPath = workspace.project?.repoPath;
+      if (!repoPath) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Project has no repo path',
+        });
+      }
+
+      logger.info('Merging workspace branch to default branch', {
+        workspaceId: input.workspaceId,
+        branchName,
+        defaultBranch,
+      });
+
+      // Commit any uncommitted changes in the worktree
+      const statusResult = await gitCommand(['status', '--porcelain'], worktreePath);
+      if (statusResult.stdout.trim()) {
+        await gitCommand(['add', '-A'], worktreePath);
+        const commitResult = await gitCommand(
+          ['commit', '-m', `Auto-commit before merge to ${defaultBranch}`],
+          worktreePath
+        );
+        if (commitResult.code !== 0) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to commit changes: ${commitResult.stderr}`,
+          });
+        }
+      }
+
+      // Push the branch to remote first
+      const pushResult = await gitCommand(['push', '-u', 'origin', branchName], worktreePath);
+      if (pushResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to push branch: ${pushResult.stderr}`,
+        });
+      }
+
+      // Merge from the main repo (not the worktree) to avoid worktree checkout issues
+      // Fetch latest default branch
+      const fetchResult = await gitCommand(['fetch', 'origin', defaultBranch], repoPath);
+      if (fetchResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch ${defaultBranch}: ${fetchResult.stderr}`,
+        });
+      }
+
+      // Checkout default branch in main repo
+      const checkoutResult = await gitCommand(['checkout', defaultBranch], repoPath);
+      if (checkoutResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to checkout ${defaultBranch}: ${checkoutResult.stderr}`,
+        });
+      }
+
+      // Pull latest
+      await gitCommand(['pull', 'origin', defaultBranch], repoPath);
+
+      // Merge the workspace branch
+      const mergeResult = await gitCommand(
+        ['merge', `origin/${branchName}`, '--no-edit'],
+        repoPath
+      );
+      if (mergeResult.code !== 0) {
+        // Abort the failed merge
+        await gitCommand(['merge', '--abort'], repoPath);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Merge conflict or failure: ${mergeResult.stderr}`,
+        });
+      }
+
+      // Push merged default branch
+      const pushMainResult = await gitCommand(['push', 'origin', defaultBranch], repoPath);
+      if (pushMainResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to push ${defaultBranch}: ${pushMainResult.stderr}`,
+        });
+      }
+
+      logger.info('Successfully merged workspace branch', {
+        workspaceId: input.workspaceId,
+        branchName,
+        defaultBranch,
+      });
+
+      return { success: true, defaultBranch, branchName };
     }),
 });
