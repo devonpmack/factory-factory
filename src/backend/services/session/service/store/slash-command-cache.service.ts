@@ -19,6 +19,9 @@ function isCommandInfo(value: unknown): value is CommandInfo {
   if (record.argumentHint !== undefined && typeof record.argumentHint !== 'string') {
     return false;
   }
+  if (record.source !== undefined && record.source !== 'native' && record.source !== 'skill') {
+    return false;
+  }
   return true;
 }
 

@@ -11,7 +11,11 @@ import {
 import { acpTraceLogger } from '@/backend/services/session/service/logging/acp-trace-logger.service';
 import { sessionFileLogger } from '@/backend/services/session/service/logging/session-file-logger.service';
 import type { SessionDomainService } from '@/backend/services/session/service/session-domain.service';
-import type { AgentMessage, SessionDeltaEvent } from '@/shared/acp-protocol';
+import {
+  skillDiscoveryService,
+  toCommandInfo,
+} from '@/backend/services/session/service/skills/skill-discovery.service';
+import type { AgentMessage, CommandInfo, SessionDeltaEvent } from '@/shared/acp-protocol';
 import type { SessionConfigService } from './session.config.service';
 import type { SessionPermissionService } from './session.permission.service';
 
@@ -53,6 +57,8 @@ export class AcpEventProcessor {
 
   /** Per-session text accumulation state for ACP streaming (reuses order so frontend upserts). */
   readonly acpStreamState = new Map<string, { textOrder: number; accText: string }>();
+  /** Per-session discovered skill commands to merge into slash_commands deltas. */
+  readonly sessionSkillCommands = new Map<string, CommandInfo[]>();
   /** Per-session ACP tool calls that have started but not yet been completed by tool_result. */
   readonly pendingAcpToolCalls = new Map<string, Map<string, PendingAcpToolCall>>();
   /**
@@ -129,6 +135,20 @@ export class AcpEventProcessor {
   ): void {
     this.sessionToWorkspace.set(sessionId, context.workspaceId);
     this.sessionToWorkingDir.set(sessionId, context.workingDir);
+    void this.discoverAndEmitSkills(sessionId, context.workingDir);
+  }
+
+  private async discoverAndEmitSkills(sessionId: string, workingDir: string): Promise<void> {
+    const skills = await skillDiscoveryService.discoverSkills(workingDir);
+    if (skills.length === 0) {
+      return;
+    }
+    const skillCommands = toCommandInfo(skills);
+    this.sessionSkillCommands.set(sessionId, skillCommands);
+    this.sessionDomainService.emitDelta(sessionId, {
+      type: 'slash_commands',
+      slashCommands: skillCommands,
+    } as SessionDeltaEvent);
   }
 
   setReplaySuppression(sessionId: string, suppress: boolean): void {
@@ -162,6 +182,27 @@ export class AcpEventProcessor {
     this.clearPendingToolCalls(sessionId);
     this.clearReplaySuppression(sessionId);
     this.clearSessionContext(sessionId);
+    this.sessionSkillCommands.delete(sessionId);
+  }
+
+  /**
+   * Merge discovered skill commands into a native slash_commands delta
+   * so the client always receives the union of native + skill commands.
+   */
+  private emitMergedSlashCommands(sid: string, delta: SessionDeltaEvent): void {
+    const nativeCommands = (delta as { slashCommands?: CommandInfo[] }).slashCommands ?? [];
+    const skillCommands = this.sessionSkillCommands.get(sid) ?? [];
+    const nativeNames = new Set(nativeCommands.map((c) => c.name));
+    const deduped = skillCommands.filter((s) => !nativeNames.has(s.name));
+    const merged = [...nativeCommands, ...deduped];
+    this.sessionDomainService.emitDelta(sid, {
+      type: 'slash_commands',
+      slashCommands: merged,
+    } as SessionDeltaEvent);
+  }
+
+  getSkillCommands(sessionId: string): CommandInfo[] {
+    return this.sessionSkillCommands.get(sessionId) ?? [];
   }
 
   beginPromptTurn(sessionId: string): void {
@@ -188,6 +229,11 @@ export class AcpEventProcessor {
     }
 
     this.trackPendingAcpToolCalls(sid, delta);
+
+    if (delta.type === 'slash_commands') {
+      this.emitMergedSlashCommands(sid, delta);
+      return;
+    }
 
     // When configOptions change mid-session, sync the handle and re-emit capabilities
     if (delta.type === 'config_options_update') {

@@ -70,6 +70,13 @@ vi.mock('@/backend/services/session/service/store/slash-command-cache.service', 
   },
 }));
 
+vi.mock('@/backend/services/session/service/skills/skill-discovery.service', () => ({
+  skillDiscoveryService: {
+    discoverSkills: vi.fn(async () => []),
+  },
+  toCommandInfo: vi.fn(() => []),
+}));
+
 vi.mock('@/backend/services/logger.service', () => ({
   createLogger: () => ({
     debug: vi.fn(),

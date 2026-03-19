@@ -144,6 +144,11 @@ export function SlashCommandPalette({
                 <div className="flex flex-col gap-0.5 w-full">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm text-primary">/{command.name}</span>
+                    {command.source === 'skill' && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                        skill
+                      </span>
+                    )}
                     {command.argumentHint && (
                       <span className="text-xs text-muted-foreground">{command.argumentHint}</span>
                     )}

@@ -1012,7 +1012,7 @@ export class SessionConfigService {
       attachments: isCodexProvider
         ? { enabled: false, kinds: [] }
         : { enabled: true, kinds: ['image', 'text'] },
-      slashCommands: { enabled: false },
+      slashCommands: { enabled: !isCodexProvider },
       usageStats: { enabled: false, contextWindow: false },
       rewind: { enabled: false },
     };
