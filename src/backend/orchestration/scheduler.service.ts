@@ -12,6 +12,7 @@ import {
   SERVICE_INTERVAL_MS,
   SERVICE_THRESHOLDS,
 } from '@/backend/services/constants';
+import { dbBackupService } from '@/backend/services/db-backup.service';
 import { githubCLIService, prSnapshotService } from '@/backend/services/github';
 import { createLogger } from '@/backend/services/logger.service';
 import { workspaceAccessor } from '@/backend/services/workspace';
@@ -20,6 +21,7 @@ const logger = createLogger('scheduler');
 
 class SchedulerService {
   private syncInterval: NodeJS.Timeout | null = null;
+  private backupInterval: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
   private syncInProgress: Promise<unknown> | null = null;
   private readonly prSyncLimit = pLimit(SERVICE_CONCURRENCY.schedulerPrSyncs);
@@ -52,7 +54,20 @@ class SchedulerService {
       });
     }, SERVICE_INTERVAL_MS.schedulerPrSync);
 
-    logger.info('Scheduler started', { prSyncIntervalMs: SERVICE_INTERVAL_MS.schedulerPrSync });
+    // Run an initial backup shortly after startup, then every 5 minutes
+    this.backupInterval = setInterval(() => {
+      if (this.isShuttingDown) {
+        return;
+      }
+      dbBackupService.backup().catch((err) => {
+        logger.error('DB backup failed', toError(err));
+      });
+    }, SERVICE_INTERVAL_MS.dbBackup);
+
+    logger.info('Scheduler started', {
+      prSyncIntervalMs: SERVICE_INTERVAL_MS.schedulerPrSync,
+      dbBackupIntervalMs: SERVICE_INTERVAL_MS.dbBackup,
+    });
   }
 
   /**
@@ -64,6 +79,11 @@ class SchedulerService {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
+    }
+
+    if (this.backupInterval) {
+      clearInterval(this.backupInterval);
+      this.backupInterval = null;
     }
 
     if (this.syncInProgress !== null) {
