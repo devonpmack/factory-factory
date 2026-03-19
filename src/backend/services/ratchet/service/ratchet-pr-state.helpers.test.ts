@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CIStatus, RatchetState } from '@/shared/core';
 import type { PRStateInfo } from './ratchet.types';
 import {
@@ -79,15 +79,11 @@ describe('determineRatchetState', () => {
 });
 
 describe('shouldSkipCleanPR', () => {
-  // biome-ignore lint/suspicious/noEmptyBlockStatements: test stub
-  const noop = () => {
-    /* noop */
-  };
   const logger = {
-    debug: noop,
-    info: noop,
-    warn: noop,
-    error: noop,
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   } as never;
 
   function makeWorkspace(
