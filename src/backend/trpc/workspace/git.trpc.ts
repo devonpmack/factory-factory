@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { isPathSafe } from '@/backend/lib/file-helpers';
 import { getMergeBase, parseGitStatusOutput } from '@/backend/lib/git-helpers';
-import { gitCommand } from '@/backend/lib/shell';
+import { execCommand, gitCommand } from '@/backend/lib/shell';
+import { archiveWorkspace } from '@/backend/orchestration/workspace-archive.orchestrator';
 import { workspaceDataService } from '@/backend/services/workspace';
 import { type Context, publicProcedure, router } from '@/backend/trpc/trpc';
 import {
@@ -215,5 +217,121 @@ export const workspaceGitRouter = router({
       }
 
       return { diff: result.stdout };
+    }),
+
+  // Merge workspace branch directly into the default branch (no PR)
+  mergeToMain: publicProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const logger = getLogger(ctx);
+      const { workspace, worktreePath } = await getWorkspaceWithProjectAndWorktreeOrThrow(
+        input.workspaceId
+      );
+
+      const branchName = workspace.branchName;
+      if (!branchName) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Workspace has no branch name',
+        });
+      }
+
+      const defaultBranch = workspace.project?.defaultBranch ?? 'main';
+      const repoPath = workspace.project?.repoPath;
+      if (!repoPath) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Project has no repo path',
+        });
+      }
+
+      logger.info('Merging workspace branch to default branch', {
+        workspaceId: input.workspaceId,
+        branchName,
+        defaultBranch,
+      });
+
+      // 1. Commit any uncommitted changes in the worktree
+      const statusResult = await gitCommand(['status', '--porcelain'], worktreePath);
+      if (statusResult.stdout.trim()) {
+        await gitCommand(['add', '-A'], worktreePath);
+        const commitResult = await gitCommand(
+          ['commit', '-m', `Auto-commit before merge to ${defaultBranch}`],
+          worktreePath
+        );
+        if (commitResult.code !== 0) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to commit changes: ${commitResult.stderr}`,
+          });
+        }
+      }
+
+      // 2. Push the branch to remote
+      const pushResult = await gitCommand(['push', '-u', 'origin', branchName], worktreePath);
+      if (pushResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to push branch: ${pushResult.stderr}`,
+        });
+      }
+
+      // 3. Use `gh api` to merge via GitHub API (avoids touching local main checkout)
+      const mergeResult = await execCommand(
+        'gh',
+        [
+          'api',
+          'repos/{owner}/{repo}/merges',
+          '-f',
+          `base=${defaultBranch}`,
+          '-f',
+          `head=${branchName}`,
+          '-f',
+          `commit_message=Merge ${branchName} into ${defaultBranch}`,
+        ],
+        { cwd: worktreePath }
+      );
+      if (mergeResult.code !== 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Merge failed: ${mergeResult.stderr}`,
+        });
+      }
+
+      // 4. Pull the merge into the main repo so local is up to date
+      await gitCommand(['pull', 'origin', defaultBranch], repoPath);
+
+      // 5. Clean up: delete remote branch
+      await gitCommand(['push', 'origin', '--delete', branchName], worktreePath).catch(() => {
+        logger.warn('Failed to delete remote branch after merge', { branchName });
+      });
+
+      // 6. Archive the workspace
+      const workspaceWithProject = await workspaceDataService.findByIdWithProject(
+        input.workspaceId
+      );
+      if (workspaceWithProject) {
+        try {
+          await archiveWorkspace(
+            workspaceWithProject,
+            { commitUncommitted: false },
+            ctx.appContext.services
+          );
+          logger.info('Archived workspace after merge', { workspaceId: input.workspaceId });
+        } catch (archiveError) {
+          logger.warn('Failed to archive workspace after merge', {
+            workspaceId: input.workspaceId,
+            error: archiveError instanceof Error ? archiveError.message : String(archiveError),
+          });
+        }
+      }
+
+      logger.info('Successfully merged workspace branch', {
+        workspaceId: input.workspaceId,
+        branchName,
+        defaultBranch,
+      });
+
+      return { success: true, defaultBranch, branchName };
     }),
 });
