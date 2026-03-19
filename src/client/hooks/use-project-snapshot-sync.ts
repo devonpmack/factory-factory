@@ -147,6 +147,46 @@ function triggerWorkspaceAttention(workspaceId: string): void {
   }
 }
 
+function handleSnapshotChangedCase(
+  utils: TrpcUtils,
+  message: SnapshotChangedMessage,
+  projectId: string | undefined,
+  viewMode: 'single' | 'all',
+  pendingRequests: Map<string, PendingRequestType>
+): void {
+  const pid = message.projectId ?? projectId;
+  if (!pid) {
+    return;
+  }
+  if (viewMode === 'all' && message.projectId) {
+    applyAllProjectsChangedMessage(
+      utils,
+      message as SnapshotChangedMessage & { projectId: string }
+    );
+  }
+  applySnapshotChangedMessage(utils, pid, message, pendingRequests);
+}
+
+function handleSnapshotRemovedCase(
+  utils: TrpcUtils,
+  message: SnapshotRemovedMessage,
+  projectId: string | undefined,
+  viewMode: 'single' | 'all',
+  pendingRequests: Map<string, PendingRequestType>
+): void {
+  const pid = message.projectId ?? projectId;
+  if (!pid) {
+    return;
+  }
+  if (viewMode === 'all' && message.projectId) {
+    applyAllProjectsRemovedMessage(
+      utils,
+      message as SnapshotRemovedMessage & { projectId: string }
+    );
+  }
+  applySnapshotRemovedMessage(utils, pid, message, pendingRequests);
+}
+
 function invalidateWorkspaceListCaches(utils: TrpcUtils, projectId: string): void {
   utils.workspace.list.invalidate({ projectId });
   utils.workspace.listWithRuntimeState.invalidate({ projectId });
@@ -164,10 +204,7 @@ type AllProjectsCacheData =
     }>
   | undefined;
 
-function applySnapshotFullAllMessage(
-  utils: TrpcUtils,
-  message: SnapshotFullAllMessage
-): void {
+function applySnapshotFullAllMessage(utils: TrpcUtils, message: SnapshotFullAllMessage): void {
   utils.workspace.getAllProjectsSummaryState.setData({}, ((prev: AllProjectsCacheData) => {
     // Group entries by projectId
     const byProject = new Map<string, typeof message.entries>();
@@ -202,9 +239,13 @@ function applyAllProjectsChangedMessage(
   message: SnapshotChangedMessage & { projectId: string }
 ): void {
   utils.workspace.getAllProjectsSummaryState.setData({}, ((prev: AllProjectsCacheData) => {
-    if (!prev) return prev;
+    if (!prev) {
+      return prev;
+    }
     return prev.map((projectData) => {
-      if (projectData.project.id !== message.projectId) return projectData;
+      if (projectData.project.id !== message.projectId) {
+        return projectData;
+      }
       const existingEntry = projectData.workspaces.find((w) => w.id === message.entry.workspaceId);
       const mapped = mapSnapshotEntryToServerWorkspace(message.entry, existingEntry);
       const existingIndex = projectData.workspaces.findIndex((w) => w.id === mapped.id);
@@ -224,9 +265,13 @@ function applyAllProjectsRemovedMessage(
   message: SnapshotRemovedMessage & { projectId: string }
 ): void {
   utils.workspace.getAllProjectsSummaryState.setData({}, ((prev: AllProjectsCacheData) => {
-    if (!prev) return prev;
+    if (!prev) {
+      return prev;
+    }
     return prev.map((projectData) => {
-      if (projectData.project.id !== message.projectId) return projectData;
+      if (projectData.project.id !== message.projectId) {
+        return projectData;
+      }
       return {
         ...projectData,
         workspaces: projectData.workspaces.filter((w) => w.id !== message.workspaceId),
@@ -416,28 +461,24 @@ export function useProjectSnapshotSync(
         }
 
         case 'snapshot_changed': {
-          const pid = message.projectId ?? projectId;
-          if (!pid) break;
-          if (viewMode === 'all' && message.projectId) {
-            applyAllProjectsChangedMessage(
-              utils,
-              message as SnapshotChangedMessage & { projectId: string }
-            );
-          }
-          applySnapshotChangedMessage(utils, pid, message, previousPendingRequestsRef.current);
+          handleSnapshotChangedCase(
+            utils,
+            message,
+            projectId,
+            viewMode,
+            previousPendingRequestsRef.current
+          );
           break;
         }
 
         case 'snapshot_removed': {
-          const pid = message.projectId ?? projectId;
-          if (!pid) break;
-          if (viewMode === 'all' && message.projectId) {
-            applyAllProjectsRemovedMessage(
-              utils,
-              message as SnapshotRemovedMessage & { projectId: string }
-            );
-          }
-          applySnapshotRemovedMessage(utils, pid, message, previousPendingRequestsRef.current);
+          handleSnapshotRemovedCase(
+            utils,
+            message,
+            projectId,
+            viewMode,
+            previousPendingRequestsRef.current
+          );
           break;
         }
       }

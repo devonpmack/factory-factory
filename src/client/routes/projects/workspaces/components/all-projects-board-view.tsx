@@ -9,11 +9,11 @@ import {
 import { ProjectSelectorDropdown } from '@/client/components/project-selector';
 import type { ServerWorkspace } from '@/client/components/use-workspace-list-state';
 import { WorkspaceItemContent } from '@/client/components/workspace-item-content';
+import { trpc } from '@/client/lib/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { trpc } from '@/client/lib/trpc';
 import { cn } from '@/lib/utils';
 
 const BOARD_COLUMNS = [
@@ -76,11 +76,7 @@ function AllProjectsBoardHeaderSlot({
   );
 }
 
-function WorkspaceCard({
-  workspace,
-}: {
-  workspace: ProjectWorkspace;
-}) {
+function WorkspaceCard({ workspace }: { workspace: ProjectWorkspace }) {
   return (
     <Link
       to={`/projects/${workspace.projectSlug}/workspaces/${workspace.id}`}
@@ -109,13 +105,7 @@ function WorkspaceCard({
   );
 }
 
-function BoardColumn({
-  label,
-  workspaces,
-}: {
-  label: string;
-  workspaces: ProjectWorkspace[];
-}) {
+function BoardColumn({ label, workspaces }: { label: string; workspaces: ProjectWorkspace[] }) {
   return (
     <div className="flex flex-col w-full md:flex-1 md:min-w-[280px] md:max-w-[440px] md:h-full">
       <div className="flex items-center justify-between px-2 py-3 bg-muted/50 rounded-t-lg">
@@ -163,7 +153,9 @@ export function AllProjectsBoardView({
       DONE: [],
     };
 
-    if (!allProjectsState) return result;
+    if (!allProjectsState) {
+      return result;
+    }
 
     for (const { project, workspaces } of allProjectsState) {
       for (const workspace of workspaces) {
@@ -176,9 +168,7 @@ export function AllProjectsBoardView({
 
     // Sort newest first within each column
     for (const col of Object.values(result)) {
-      col.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      col.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
     return result;
@@ -222,11 +212,7 @@ export function AllProjectsBoardView({
         <div className="flex-1 min-h-0">
           <div className="flex flex-row gap-4 pb-4 h-full overflow-y-hidden overflow-x-auto mx-auto w-full max-w-[1800px]">
             {BOARD_COLUMNS.map((col) => (
-              <BoardColumn
-                key={col.id}
-                label={col.label}
-                workspaces={workspacesByColumn[col.id]}
-              />
+              <BoardColumn key={col.id} label={col.label} workspaces={workspacesByColumn[col.id]} />
             ))}
           </div>
         </div>

@@ -11,6 +11,7 @@ import type { Duplex } from 'node:stream';
 import type { WebSocket, WebSocketServer } from 'ws';
 import type { AppContext } from '@/backend/app-context';
 import { WS_READY_STATE } from '@/backend/constants/websocket';
+import { projectAccessor } from '@/backend/services/workspace';
 import {
   SNAPSHOT_CHANGED,
   SNAPSHOT_REMOVED,
@@ -18,7 +19,6 @@ import {
   type SnapshotRemovedEvent,
   workspaceSnapshotStore,
 } from '@/backend/services/workspace-snapshot-store.service';
-import { projectAccessor } from '@/backend/services/workspace';
 import { WorkspaceStatus } from '@/shared/core';
 import { getOrCreateConnectionSet, markWebSocketAlive, sendBadRequest } from './upgrade-utils';
 
@@ -147,6 +147,36 @@ export function resetSnapshotsHandlerStateForTests(): void {
 // Upgrade Handler
 // ============================================================================
 
+function removeAllProjectConnections(
+  ws: WebSocket,
+  projectIds: string[],
+  connections: SnapshotConnectionsMap
+): void {
+  for (const pid of projectIds) {
+    const projectConnections = connections.get(pid);
+    if (projectConnections) {
+      projectConnections.delete(ws);
+      if (projectConnections.size === 0) {
+        connections.delete(pid);
+      }
+    }
+  }
+}
+
+function removeSingleProjectConnection(
+  ws: WebSocket,
+  projectId: string,
+  connections: SnapshotConnectionsMap
+): void {
+  const projectConnections = connections.get(projectId);
+  if (projectConnections) {
+    projectConnections.delete(ws);
+    if (projectConnections.size === 0) {
+      connections.delete(projectId);
+    }
+  }
+}
+
 export function createSnapshotsUpgradeHandler(
   appContext: AppContext,
   options: {
@@ -208,15 +238,7 @@ export function createSnapshotsUpgradeHandler(
 
         ws.on('close', () => {
           logger.info('Snapshots WebSocket connection closed', { projectId });
-          for (const pid of projectIds) {
-            const projectConnections = connections.get(pid);
-            if (projectConnections) {
-              projectConnections.delete(ws);
-              if (projectConnections.size === 0) {
-                connections.delete(pid);
-              }
-            }
-          }
+          removeAllProjectConnections(ws, projectIds, connections);
         });
       } else {
         // Add to connection set FIRST (before sending full snapshot)
@@ -236,14 +258,7 @@ export function createSnapshotsUpgradeHandler(
 
         ws.on('close', () => {
           logger.info('Snapshots WebSocket connection closed', { projectId });
-
-          const projectConnections = connections.get(projectId);
-          if (projectConnections) {
-            projectConnections.delete(ws);
-            if (projectConnections.size === 0) {
-              connections.delete(projectId);
-            }
-          }
+          removeSingleProjectConnection(ws, projectId, connections);
         });
       }
 
