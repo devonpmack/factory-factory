@@ -210,9 +210,6 @@ model Workspace {
   ratchetActiveSessionId  String?                         // ID of active fixer session (if any)
   ratchetLastCiRunId      String?                         // Track which CI run we processed
 
-  // Auto PR creation
-  autoCreatePR            Boolean       @default(false)   // Automatically create PR when session completes
-
   // Activity tracking
   hasHadSessions      Boolean           @default(false)
 

@@ -55,7 +55,6 @@ describe('WorkspaceCreationService', () => {
     ratchetLastCheckedAt: null,
     ratchetActiveSessionId: null,
     ratchetLastCiRunId: null,
-    autoCreatePR: false,
     hasHadSessions: false,
     cachedKanbanColumn: 'WAITING',
     stateComputedAt: null,

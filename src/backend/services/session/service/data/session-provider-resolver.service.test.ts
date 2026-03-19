@@ -49,7 +49,6 @@ const createWorkspace = (overrides?: Partial<Workspace>): Workspace =>
     ratchetLastCheckedAt: null,
     ratchetActiveSessionId: null,
     ratchetLastCiRunId: null,
-    autoCreatePR: false,
     hasHadSessions: false,
     cachedKanbanColumn: 'WAITING',
     stateComputedAt: null,
