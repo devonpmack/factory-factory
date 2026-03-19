@@ -52,6 +52,7 @@ import { ThemeToggle } from './theme-toggle';
 import { WorkspaceItemContent } from './workspace-item-content';
 import {
   type AllProjectsSidebarGroups,
+  flattenWorkspacesForAllProjects,
   groupWorkspacesForAllProjects,
   groupWorkspacesForSidebar,
 } from './workspace-sidebar-grouping';
@@ -144,19 +145,19 @@ function WorkspaceGroup({
   currentWorkspaceId,
   emptyText,
   unreadWorkspaceIds,
-  workspaceProjectNames,
+  projectName,
 }: {
-  label: string;
+  label?: string;
   workspaces: ServerWorkspace[];
   projectSlug: string;
   currentWorkspaceId: string | undefined;
   emptyText: string;
   unreadWorkspaceIds?: Set<string>;
-  workspaceProjectNames?: Map<string, string>;
+  projectName?: string;
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
       <SidebarGroupContent>
         {workspaces.length === 0 ? (
           <EmptyPlaceholder text={emptyText} />
@@ -169,7 +170,7 @@ function WorkspaceGroup({
                 projectSlug={projectSlug}
                 isActive={ws.id === currentWorkspaceId}
                 hasUnread={unreadWorkspaceIds?.has(ws.id)}
-                projectName={workspaceProjectNames?.get(ws.id)}
+                projectName={projectName}
               />
             ))}
           </SidebarMenu>
@@ -211,60 +212,29 @@ function AllProjectsView({
   currentWorkspaceId: string | undefined;
   unreadWorkspaceIds: Set<string>;
 }) {
-  // Build workspace → project name map for badges
-  const workspaceProjectNames = new Map<string, string>();
-  for (const { project, waiting, working } of projectsData.projects) {
-    for (const ws of [...waiting, ...working]) {
-      workspaceProjectNames.set(ws.id, project.name);
-    }
-  }
+  const entries = flattenWorkspacesForAllProjects(projectsData, unreadWorkspaceIds);
 
   return (
-    <>
-      {projectsData.projects.map(({ project, waiting, working, done }) => (
-        <div key={project.id}>
-          <SidebarGroup className="pb-0">
-            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider">
-              {project.name}
-            </SidebarGroupLabel>
-          </SidebarGroup>
-
-          {waiting.length > 0 && (
-            <WorkspaceGroup
-              label="Waiting"
-              workspaces={waiting}
-              projectSlug="__all__"
-              currentWorkspaceId={currentWorkspaceId}
-              emptyText=""
-              unreadWorkspaceIds={unreadWorkspaceIds}
-              workspaceProjectNames={workspaceProjectNames}
-            />
-          )}
-
-          {working.length > 0 && (
-            <WorkspaceGroup
-              label="Working"
-              workspaces={working}
-              projectSlug="__all__"
-              currentWorkspaceId={currentWorkspaceId}
-              emptyText=""
-              unreadWorkspaceIds={unreadWorkspaceIds}
-              workspaceProjectNames={workspaceProjectNames}
-            />
-          )}
-
-          {waiting.length === 0 && working.length === 0 && done.length === 0 && (
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <EmptyPlaceholder text="No workspaces" />
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
-
-          <SidebarSeparator />
-        </div>
-      ))}
-    </>
+    <SidebarGroup>
+      <SidebarGroupContent>
+        {entries.length === 0 ? (
+          <EmptyPlaceholder text="No workspaces" />
+        ) : (
+          <SidebarMenu>
+            {entries.map(({ workspace: ws, projectName }) => (
+              <SidebarWorkspaceItem
+                key={ws.id}
+                workspace={ws}
+                projectSlug="__all__"
+                isActive={ws.id === currentWorkspaceId}
+                hasUnread={unreadWorkspaceIds.has(ws.id)}
+                projectName={projectName}
+              />
+            ))}
+          </SidebarMenu>
+        )}
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }
 
@@ -278,7 +248,6 @@ function SidebarInner({
   waiting,
   working,
   selectedProjectId,
-  selectedProjectName,
   existingWorkspaceNames,
   showNewWorkspaceForm,
   onShowNewWorkspaceFormChange,
@@ -293,7 +262,6 @@ function SidebarInner({
   waiting: ServerWorkspace[];
   working: ServerWorkspace[];
   selectedProjectId: string | undefined;
-  selectedProjectName: string | undefined;
   existingWorkspaceNames: string[] | undefined;
   showNewWorkspaceForm: boolean;
   onShowNewWorkspaceFormChange: (show: boolean) => void;
@@ -305,13 +273,6 @@ function SidebarInner({
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-
-  const waitingProjectNames = selectedProjectName
-    ? new Map(waiting.map((ws) => [ws.id, selectedProjectName]))
-    : undefined;
-  const workingProjectNames = selectedProjectName
-    ? new Map(working.map((ws) => [ws.id, selectedProjectName]))
-    : undefined;
 
   return (
     <>
@@ -408,7 +369,7 @@ function SidebarInner({
               currentWorkspaceId={navData.currentWorkspaceId}
               emptyText="No waiting workspaces"
               unreadWorkspaceIds={unreadWorkspaceIds}
-              workspaceProjectNames={waitingProjectNames}
+              projectName={navData.projects?.find((p) => p.id === navData.selectedProjectId)?.name}
             />
             <WorkspaceGroup
               label="Working"
@@ -417,7 +378,7 @@ function SidebarInner({
               currentWorkspaceId={navData.currentWorkspaceId}
               emptyText="No active workspaces"
               unreadWorkspaceIds={unreadWorkspaceIds}
-              workspaceProjectNames={workingProjectNames}
+              projectName={navData.projects?.find((p) => p.id === navData.selectedProjectId)?.name}
             />
             <IssueGroup issues={issues} />
           </>
@@ -540,10 +501,6 @@ export function AppSidebar({ navData }: { navData: NavigationData }) {
 
   const unreadWorkspaceIds = useWorkspaceUnreadState(allWorkspacesFlat, navData.currentWorkspaceId);
 
-  const selectedProjectName = navData.projects?.find(
-    (p) => p.id === navData.selectedProjectId
-  )?.name;
-
   // Group workspaces by kanban column, sorted by unread then lastActivityAt (newest first)
   const { waiting, working } = useMemo(() => {
     return groupWorkspacesForSidebar(navData.serverWorkspaces ?? [], unreadWorkspaceIds);
@@ -608,7 +565,6 @@ export function AppSidebar({ navData }: { navData: NavigationData }) {
     waiting,
     working,
     selectedProjectId: newWorkspaceProjectId ?? navData.selectedProjectId,
-    selectedProjectName,
     existingWorkspaceNames: navData.serverWorkspaces?.map((workspace) => workspace.name),
     showNewWorkspaceForm,
     onShowNewWorkspaceFormChange: (show: boolean) => {
