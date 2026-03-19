@@ -69,8 +69,17 @@ interface UpdateProjectInput {
 
 interface ListProjectsFilters {
   isArchived?: boolean;
+  isSystem?: boolean;
   limit?: number;
   offset?: number;
+}
+
+interface CreateSystemProjectInput {
+  name: string;
+  slug: string;
+  repoPath: string;
+  worktreeBasePath: string;
+  defaultBranch?: string;
 }
 
 /**
@@ -284,11 +293,28 @@ class ProjectAccessor {
     });
   }
 
+  createSystem(data: CreateSystemProjectInput) {
+    return prisma.project.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+        repoPath: data.repoPath,
+        worktreeBasePath: data.worktreeBasePath,
+        defaultBranch: data.defaultBranch ?? 'main',
+        isSystem: true,
+      },
+    });
+  }
+
   list(filters?: ListProjectsFilters) {
     const where: Prisma.ProjectWhereInput = {};
 
     if (filters?.isArchived !== undefined) {
       where.isArchived = filters.isArchived;
+    }
+
+    if (filters?.isSystem !== undefined) {
+      where.isSystem = filters.isSystem;
     }
 
     return prisma.project.findMany({

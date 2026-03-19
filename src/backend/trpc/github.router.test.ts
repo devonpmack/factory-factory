@@ -63,6 +63,7 @@ describe('githubRouter', () => {
         githubOwner: 'purplefish-ai',
         githubRepo: 'factory-factory',
         aiDescription: null,
+        isSystem: false,
       },
     });
     mockGithubCLIService.listIssues.mockResolvedValue([{ number: 101 }]);
@@ -86,6 +87,7 @@ describe('githubRouter', () => {
       githubOwner: 'purplefish-ai',
       githubRepo: 'factory-factory',
       aiDescription: null,
+      isSystem: false,
     });
     mockGithubCLIService.listIssues.mockResolvedValue([{ number: 55, title: 'Fix bug' }]);
     mockGithubCLIService.getIssue.mockRejectedValueOnce(new Error('boom'));

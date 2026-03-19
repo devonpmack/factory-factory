@@ -54,6 +54,29 @@ class TaskRepoAccessor {
       where: { taskId },
     });
   }
+
+  findActiveWithPRs() {
+    return prisma.taskRepo.findMany({
+      where: {
+        prUrl: { not: null },
+        status: 'READY',
+        task: {
+          status: { in: ['READY', 'RUNNING'] },
+          ratchetEnabled: true,
+        },
+      },
+      include: {
+        project: { select: { slug: true, githubOwner: true, githubRepo: true } },
+        task: {
+          include: {
+            workspace: true,
+          },
+        },
+      },
+    });
+  }
 }
 
 export const taskRepoAccessor = new TaskRepoAccessor();
+
+export type ActiveTaskRepo = Awaited<ReturnType<typeof taskRepoAccessor.findActiveWithPRs>>[number];

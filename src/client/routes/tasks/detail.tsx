@@ -1,6 +1,5 @@
-import { GitBranch } from 'lucide-react';
+import { ExternalLink, GitBranch } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { toast } from 'sonner';
 import { useAppHeader } from '@/client/components/app-header-context';
 import { trpc } from '@/client/lib/trpc';
 import { Badge } from '@/components/ui/badge';
@@ -141,28 +140,24 @@ function groupByOrg(taskProjects: TaskProject[]): Map<string, TaskProject[]> {
 }
 
 function TaskActions({
-  task,
-  onStartSession,
-  isPending,
+  taskStatus,
+  sentinelWorkspaceId,
 }: {
-  task: { status: string; primarySessionId: string | null };
-  onStartSession: () => void;
-  isPending: boolean;
+  taskStatus: string;
+  sentinelWorkspaceId: string | null;
 }) {
   const navigate = useNavigate();
+  const isSessionReady =
+    (taskStatus === 'READY' || taskStatus === 'RUNNING') && sentinelWorkspaceId;
   return (
     <div className="flex gap-3">
       <Button variant="outline" onClick={() => navigate('/tasks')}>
         Back to Tasks
       </Button>
-      {task.status === 'READY' && (
-        <Button onClick={onStartSession} disabled={isPending}>
-          {isPending ? 'Starting...' : 'Start Session'}
-        </Button>
-      )}
-      {task.status === 'RUNNING' && task.primarySessionId && (
-        <Button variant="outline" disabled>
-          Session Active
+      {isSessionReady && (
+        <Button onClick={() => navigate(`/projects/__tasks__/workspaces/${sentinelWorkspaceId}`)}>
+          <ExternalLink className="mr-2 h-4 w-4" />
+          View Session
         </Button>
       )}
     </div>
@@ -217,7 +212,6 @@ function TaskRepoList({
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: task, isLoading } = trpc.task.get.useQuery(
     { id: id ?? '' },
     { enabled: !!id, refetchInterval: 5000 }
@@ -229,25 +223,12 @@ export default function TaskDetailPage() {
       refetchInterval: 10_000,
     }
   );
-  const startSession = trpc.task.startSession.useMutation();
+  const { data: taskWorkspace } = trpc.task.getTaskWorkspace.useQuery(
+    { id: id ?? '' },
+    { enabled: !!id }
+  );
 
   useAppHeader({ title: task?.title ?? 'Task' });
-
-  const handleStartSession = async () => {
-    if (!id) {
-      return;
-    }
-    try {
-      const result = await startSession.mutateAsync({ id });
-      toast.success('Session started');
-      const project = task?.taskProjects[0]?.project;
-      if (project) {
-        await navigate(`/projects/${project.slug}/workspaces/${result.workspaceId}`);
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to start session');
-    }
-  };
 
   if (isLoading) {
     return (
@@ -312,9 +293,8 @@ export default function TaskDetailPage() {
       />
 
       <TaskActions
-        task={task}
-        onStartSession={handleStartSession}
-        isPending={startSession.isPending}
+        taskStatus={task.status}
+        sentinelWorkspaceId={taskWorkspace?.workspaceId ?? null}
       />
     </div>
   );

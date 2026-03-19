@@ -10,6 +10,7 @@ export const prismaModelNames = [
   'TaskProject',
   'TaskRepo',
   'TaskRepoPullRequest',
+  'TaskWorkspace',
 ] as const;
 
 export type PrismaModelName = (typeof prismaModelNames)[number];
@@ -73,6 +74,6 @@ export const serviceRegistry = {
   },
   task: {
     dependsOn: ['workspace', 'session'],
-    ownsModels: ['Task', 'TaskProject', 'TaskRepo', 'TaskRepoPullRequest'],
+    ownsModels: ['Task', 'TaskProject', 'TaskRepo', 'TaskRepoPullRequest', 'TaskWorkspace'],
   },
 } as const satisfies Record<ServiceName, ServiceDefinition>;

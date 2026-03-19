@@ -1,18 +1,19 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { materializeTaskRepos } from '@/backend/orchestration/task-init.orchestrator';
+import { initializeTaskWorktrees } from '@/backend/orchestration/task-init.orchestrator';
 import { gitOpsService } from '@/backend/services/git-ops.service';
-import { sessionDataService, sessionProviderResolverService } from '@/backend/services/session';
+import { createLogger } from '@/backend/services/logger.service';
 import {
   taskAccessor,
   taskLifecycleService,
   taskProjectAccessor,
   taskRepoAccessor,
   taskRoutingService,
+  taskWorkspaceAccessor,
 } from '@/backend/services/task';
-import { workspaceAccessor, workspaceStateMachine } from '@/backend/services/workspace';
-import { TaskStatus } from '@/shared/core';
 import { publicProcedure, router } from './trpc';
+
+const logger = createLogger('task-router');
 
 export const taskRouter = router({
   create: publicProcedure
@@ -58,121 +59,30 @@ export const taskRouter = router({
       return taskLifecycleService.confirmProjects(input.id, input.projectIds);
     }),
 
-  launch: publicProcedure.input(z.object({ id: z.string() })).mutation(({ input }) => {
-    return materializeTaskRepos(input.id);
+  launch: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+    const task = await taskAccessor.findById(input.id);
+    if (!task) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
+    }
+
+    void initializeTaskWorktrees(input.id).catch((error) => {
+      logger.error(
+        'Task initialization failed',
+        error instanceof Error ? error : new Error(String(error)),
+        { taskId: input.id }
+      );
+    });
+
+    return { id: input.id };
   }),
 
-  startSession: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const task = await taskAccessor.findById(input.id);
-      if (!task) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
-      }
-      if (task.status !== TaskStatus.READY) {
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: `Task must be READY before starting a session, got: ${task.status}`,
-        });
-      }
-      if (!task.rootPath) {
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: 'Task has no root path',
-        });
-      }
-
-      const taskProjects = await taskProjectAccessor.findByTaskId(input.id);
-      const firstProject = taskProjects[0]?.project;
-      if (!firstProject) {
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: 'Task has no confirmed projects',
-        });
-      }
-
-      // Build repo-aware system preamble with AI descriptions
-      const repoList = task.taskRepos
-        .filter((r) => r.mountPath)
-        .map((r) => {
-          const project = taskProjects.find((tp) => tp.projectId === r.projectId)?.project;
-          const slug = project?.slug ?? r.projectId;
-          const desc = project?.aiDescription;
-          return desc ? `- \`repos/${slug}\` — ${desc}` : `- \`repos/${slug}\``;
-        })
-        .join('\n');
-
-      const taskPrompt = `# Task: ${task.title ?? 'Cross-project task'}
-
-${task.prompt}
-
----
-
-You are working in a task root that contains multiple repositories under \`repos/\`.
-The available repositories are:
-${repoList}
-
-When making changes:
-- Use repository-relative paths and be explicit about which repo you are editing
-- Run commands from within the relevant repo directory (e.g., \`cd repos/<slug> && ...\`)
-- If changes in one repo affect another, check both repos for consistency
-- Create separate branches and commits per repo as needed`;
-
-      // Create a workspace for the task, backed by the first project
-      const workspace = await workspaceAccessor.create({
-        projectId: firstProject.id,
-        name: task.title ?? `Task ${input.id}`,
-        description: task.prompt.slice(0, 200),
-        creationSource: 'MANUAL',
-        creationMetadata: { taskId: input.id, initialPrompt: taskPrompt },
-      });
-
-      // Set worktreePath directly to the task root and mark ready
-      await workspaceAccessor.update(workspace.id, {
-        worktreePath: task.rootPath,
-      });
-      await workspaceStateMachine.startProvisioning(workspace.id);
-      await workspaceStateMachine.markReady(workspace.id);
-
-      const { sessionService, sessionDomainService, chatMessageHandlerService } =
-        ctx.appContext.services;
-
-      const provider = await sessionProviderResolverService.resolveSessionProvider({
-        workspaceId: workspace.id,
-      });
-
-      const session = await sessionDataService.createAgentSession({
-        workspaceId: workspace.id,
-        workflow: 'implement',
-        provider,
-      });
-
-      await sessionService.startSession(session.id, { initialPrompt: '' });
-
-      // Send the task prompt through the queue
-      const messageId = `task-init-${Date.now()}`;
-      const enqueueResult = sessionDomainService.enqueue(session.id, {
-        id: messageId,
-        text: taskPrompt,
-        timestamp: new Date().toISOString(),
-        settings: {
-          selectedModel: session.model,
-          reasoningEffort: null,
-          thinkingEnabled: false,
-          planModeEnabled: false,
-        },
-      });
-      if (!('error' in enqueueResult)) {
-        await chatMessageHandlerService.tryDispatchNextMessage(session.id);
-      }
-
-      await taskAccessor.update(input.id, {
-        status: TaskStatus.RUNNING,
-        primarySessionId: session.id,
-      });
-
-      return { workspaceId: workspace.id, sessionId: session.id };
-    }),
+  getTaskWorkspace: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+    const tw = await taskWorkspaceAccessor.findByTaskId(input.id);
+    if (!tw) {
+      return null;
+    }
+    return { workspaceId: tw.workspaceId, taskRoot: tw.taskRoot };
+  }),
 
   repoGitSummaries: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
     const task = await taskAccessor.findById(input.id);

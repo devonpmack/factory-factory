@@ -41,6 +41,7 @@ function makeWorkspace(overrides: Partial<WorkspaceWithProject> = {}): Workspace
       githubOwner: 'owner',
       githubRepo: 'repo',
       aiDescription: null,
+      isSystem: false,
     },
     ...overrides,
   });
@@ -340,6 +341,7 @@ describe('archiveWorkspace', () => {
           githubOwner: null,
           githubRepo: null,
           aiDescription: null,
+          isSystem: false,
         }),
       });
 
