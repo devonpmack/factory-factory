@@ -81,6 +81,36 @@ async function isPortInUse(port: number): Promise<boolean> {
   });
 }
 
+/**
+ * Kill any process listening on the given port.
+ * Returns true if a process was killed, false if port was already free.
+ */
+export async function killProcessOnPort(port: number): Promise<boolean> {
+  try {
+    const { stdout } = await execPromise(`lsof -i :${port} -sTCP:LISTEN -t`, {
+      timeout: 2000,
+    });
+    const pids = stdout.trim().split('\n').filter(Boolean);
+    if (pids.length === 0) {
+      return false;
+    }
+
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), 'SIGKILL');
+      } catch {
+        // Process may have already exited
+      }
+    }
+
+    // Wait briefly for port to be released
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface FindAvailablePortOptions {
   excludePorts?: number[];
   maxAttempts?: number;

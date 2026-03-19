@@ -13,7 +13,13 @@ import { runMigrations as runDbMigrations } from '@/backend/migrate';
 import { createLogger, getLogFilePath } from '@/backend/services/logger.service';
 import { runCodexAppServerAcpAdapter } from '@/backend/services/session';
 import { runProxyCommand } from './proxy';
-import { ensureDataDir, findAvailablePort, treeKillAsync, waitForPort } from './runtime-utils';
+import {
+  ensureDataDir,
+  findAvailablePort,
+  killProcessOnPort,
+  treeKillAsync,
+  waitForPort,
+} from './runtime-utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -178,21 +184,14 @@ async function resolvePortsOrExit(
     }
 
     if (options.dev) {
-      const backendPort = await findAvailablePort(requestedBackendPort);
-      const frontendPort = await findAvailablePort(requestedFrontendPort, {
-        maxAttempts: 20,
-        excludePorts: [backendPort],
-      });
-
-      if (frontendPort !== requestedFrontendPort || backendPort !== requestedBackendPort) {
-        console.log(
-          chalk.yellow(
-            `  ⚠ Requested ports in use, using Frontend: ${frontendPort}, Backend: ${backendPort}`
-          )
-        );
+      // In dev mode, kill any existing processes on our ports instead of finding alternatives
+      const killedBackend = await killProcessOnPort(requestedBackendPort);
+      const killedFrontend = await killProcessOnPort(requestedFrontendPort);
+      if (killedBackend || killedFrontend) {
+        console.log(chalk.yellow('  ⚠ Killed existing processes on requested ports'));
       }
 
-      return { frontendPort, backendPort };
+      return { frontendPort: requestedFrontendPort, backendPort: requestedBackendPort };
     }
 
     const frontendPort = await findAvailablePort(requestedFrontendPort);
