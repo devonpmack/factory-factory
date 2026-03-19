@@ -22,7 +22,6 @@ export type WorkspaceCreationSource =
       description?: string;
       branchName?: string;
       ratchetEnabled?: boolean;
-      autoCreatePR?: boolean;
       initialPrompt?: string;
       initialAttachments?: MessageAttachment[];
       startupModePreset?: 'non_interactive' | 'plan';
@@ -108,13 +107,9 @@ export class WorkspaceCreationService {
     const ratchetEnabled = await this.resolveWorkspaceCreationDefaults(source.ratchetEnabled);
 
     // Create workspace record
-    // Extract autoCreatePR from MANUAL source
-    const autoCreatePR = source.type === 'MANUAL' ? source.autoCreatePR : undefined;
-
     const workspace = await workspaceAccessor.create({
       ...preparedInput,
       ratchetEnabled,
-      autoCreatePR,
     });
 
     // Set initialization mode if resuming existing branch
