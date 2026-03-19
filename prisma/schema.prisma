@@ -210,12 +210,18 @@ model Workspace {
   ratchetActiveSessionId  String?                         // ID of active fixer session (if any)
   ratchetLastCiRunId      String?                         // Track which CI run we processed
 
+  // Auto PR creation
+  autoCreatePR            Boolean       @default(false)   // Automatically create PR when session completes
+
   // Activity tracking
   hasHadSessions      Boolean           @default(false)
 
   // Cached kanban column (for list performance)
   cachedKanbanColumn  KanbanColumn      @default(WAITING)
   stateComputedAt     DateTime?         // Last kanban column computation
+
+  // Human-written notepad for workspace notes
+  notepad             String?
 
   @@index([projectId])
   @@index([status])

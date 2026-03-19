@@ -46,6 +46,7 @@ const workspaceCreationSourceSchema = z.discriminatedUnion('type', [
     description: z.string().optional(),
     branchName: z.string().optional(),
     ratchetEnabled: z.boolean().optional(),
+    autoCreatePR: z.boolean().optional(),
     initialPrompt: z.string().optional(),
     initialAttachments: z.array(AttachmentSchema).optional(),
     startupModePreset: z.enum(['non_interactive', 'plan']).optional(),
@@ -399,6 +400,18 @@ export const workspaceRouter = router({
   hasChanges: publicProcedure
     .input(z.object({ workspaceId: z.string() }))
     .query(({ input }) => workspaceQueryService.hasChanges(input.workspaceId)),
+
+  // Update workspace notepad
+  updateNotepad: publicProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        notepad: z.string().nullable(),
+      })
+    )
+    .mutation(({ input }) => {
+      return workspaceDataService.updateNotepad(input.workspaceId, input.notepad);
+    }),
 
   // Merge sub-routers
   ...workspaceFilesRouter._def.procedures,

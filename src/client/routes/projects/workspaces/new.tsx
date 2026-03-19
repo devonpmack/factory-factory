@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
 export default function NewWorkspacePage() {
@@ -22,6 +23,7 @@ export default function NewWorkspacePage() {
   const [description, setDescription] = useState('');
   const [branchName, setBranchName] = useState('');
   const [error, setError] = useState('');
+  const [autoCreatePR, setAutoCreatePR] = useState(false);
 
   const { data: project } = trpc.project.getBySlug.useQuery({ slug });
   const { data: factoryConfig } = trpc.workspace.getFactoryConfig.useQuery(
@@ -70,6 +72,7 @@ export default function NewWorkspacePage() {
       name,
       description: description || undefined,
       branchName: branchName || undefined,
+      autoCreatePR: autoCreatePR || undefined,
     });
   };
 
@@ -138,6 +141,11 @@ export default function NewWorkspacePage() {
                 placeholder="E.g., feature/my-feature"
                 className="font-mono"
               />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch id="autoCreatePR" checked={autoCreatePR} onCheckedChange={setAutoCreatePR} />
+              <Label htmlFor="autoCreatePR">Auto-create PR when session completes</Label>
             </div>
 
             <div className="flex justify-end gap-4">

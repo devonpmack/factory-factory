@@ -1,10 +1,15 @@
+import { execFile } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import type { SessionProvider } from '@prisma-gen/client';
 import { writeFileAtomic } from '@/backend/lib/atomic-file';
 import { createLogger } from '@/backend/services/logger.service';
 import { closedSessionAccessor } from '@/backend/services/session/resources/closed-session.accessor';
+import { workspaceAccessor } from '@/backend/services/workspace';
 import type { ChatMessage } from '@/shared/acp-protocol';
+
+const execFileAsync = promisify(execFile);
 
 const logger = createLogger('closed-session-persistence');
 
@@ -38,6 +43,42 @@ export interface PersistClosedSessionInput {
 class ClosedSessionPersistenceService {
   private readonly contextDirName = '.context';
   private readonly closedSessionsDir = 'closed-sessions';
+
+  private async maybeCreatePR(workspaceId: string, worktreePath: string): Promise<void> {
+    try {
+      const workspace = await workspaceAccessor.findRawById(workspaceId);
+      if (!workspace) {
+        logger.debug('Workspace not found for auto-PR creation', { workspaceId });
+        return;
+      }
+
+      if (!workspace.autoCreatePR) {
+        return;
+      }
+
+      if (workspace.prUrl) {
+        logger.debug('Workspace already has a PR, skipping auto-create', { workspaceId });
+        return;
+      }
+
+      logger.info('Auto-creating PR for workspace', { workspaceId, worktreePath });
+
+      const { stdout } = await execFileAsync('gh', ['pr', 'create', '--fill'], {
+        cwd: worktreePath,
+      });
+
+      const prUrl = stdout.trim();
+      if (prUrl) {
+        await workspaceAccessor.update(workspaceId, { prUrl });
+        logger.info('Auto-created PR', { workspaceId, prUrl });
+      }
+    } catch (error) {
+      logger.warn('Failed to auto-create PR', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   async persistClosedSession(input: PersistClosedSessionInput): Promise<void> {
     const {
@@ -122,6 +163,8 @@ class ClosedSessionPersistenceService {
         workflow,
         messageCount: messages.length,
       });
+
+      await this.maybeCreatePR(workspaceId, worktreePath);
     } catch (error) {
       logger.error('Failed to persist closed session', error as Error, {
         sessionId,

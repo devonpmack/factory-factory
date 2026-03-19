@@ -140,9 +140,11 @@ const mockWorkspace: Workspace = {
   ratchetLastCheckedAt: new Date('2025-01-01T00:25:00.000Z'),
   ratchetActiveSessionId: 'session-123',
   ratchetLastCiRunId: 'run-123',
+  autoCreatePR: false,
   hasHadSessions: true,
   cachedKanbanColumn: KanbanColumn.WORKING,
   stateComputedAt: new Date('2025-01-01T00:35:00.000Z'),
+  notepad: null,
   createdAt: new Date('2025-01-01T00:00:00.000Z'),
   updatedAt: new Date('2025-01-01T00:35:00.000Z'),
 };
