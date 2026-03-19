@@ -54,7 +54,7 @@ Path aliases: `@/*` → `src/`, `@prisma-gen/*` → `prisma/generated/`.
 - Create a feature branch: `git switch -c your-branch-name`.
 - Keep work tidy: `git status`, `git diff`, `git add -p`, `git commit -m "Verb phrase"`.
 - **PRs must target the fork** (`devonpmack/factory-factory`), not the upstream repo (`purplefish-ai/factory-factory`). Always use `--repo devonpmack/factory-factory` with `gh pr create`.
-- Open a PR: `gh pr create --repo devonpmack/factory-factory --fill` (edit title/body as needed), then push updates with `git push`.
+- Open a PR: `gh pr create --draft --repo devonpmack/factory-factory --fill` (edit title/body as needed), then push updates with `git push`. Always create PRs as drafts first.
 - For multi-line PR bodies, prefer `--body-file` to avoid newline escaping issues (write content to a temp file and pass it to `gh pr create`).
 - For multi-line issue bodies, prefer `gh issue create --body-file` or `gh issue edit --body-file` to preserve newlines.
 

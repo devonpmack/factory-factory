@@ -79,3 +79,15 @@ export function groupWorkspacesForAllProjects(
     })),
   };
 }
+
+export function flattenWorkspacesForAllProjects(
+  grouped: AllProjectsSidebarGroups,
+  unreadIds: Set<string> = new Set()
+): Array<{ workspace: ServerWorkspace; projectName: string }> {
+  const compare = makeComparator(unreadIds);
+  return grouped.projects.flatMap(({ project, waiting, working }) =>
+    [...waiting, ...working]
+      .sort(compare)
+      .map((workspace) => ({ workspace, projectName: project.name }))
+  );
+}

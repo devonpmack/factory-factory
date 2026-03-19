@@ -8,6 +8,7 @@
 import { extractInputValue, isString } from '@/backend/schemas/tool-inputs.schema';
 import { prSnapshotService } from '@/backend/services/github';
 import { createLogger } from '@/backend/services/logger.service';
+import { workspaceAccessor } from '@/backend/services/workspace';
 import type { InterceptorContext, ToolEvent, ToolInterceptor } from './types';
 
 const logger = createLogger('pr-detection');
@@ -97,25 +98,29 @@ export const prDetectionInterceptor: ToolInterceptor = {
       return;
     }
 
-    // Check if this was a `gh pr create` command
-    const command = extractCommand(event);
-    if (!(command && GH_PR_CREATE_REGEX.test(command))) {
-      return;
-    }
-
     // Extract PR URL from output
     const prUrl = extractPrUrlFromEvent(event);
     if (!prUrl) {
-      logger.debug('No PR URL found in gh pr create output', {
-        workspaceId: context.workspaceId,
-        toolName: event.toolName,
-      });
       return;
+    }
+
+    const command = extractCommand(event);
+    const isDirectPrCreate = !!(command && GH_PR_CREATE_REGEX.test(command));
+
+    if (!isDirectPrCreate) {
+      // For shell scripts that internally run `gh pr create`, only attach if the
+      // workspace doesn't already have a PR URL — this avoids false positives from
+      // commands like `gh pr view` that also output PR URLs.
+      const workspace = await workspaceAccessor.findById(context.workspaceId);
+      if (!workspace || workspace.prUrl) {
+        return;
+      }
     }
 
     logger.info('Detected PR creation', {
       workspaceId: context.workspaceId,
       prUrl,
+      via: isDirectPrCreate ? 'direct' : 'script',
     });
 
     // Route through PRSnapshotService for canonical PR attachment
