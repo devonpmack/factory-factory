@@ -3,7 +3,10 @@ import { createLogger } from '@/backend/services/logger.service';
 import type { AgentSessionRecord } from '@/backend/services/session/resources/agent-session.accessor';
 import type { AcpRuntimeManager } from '@/backend/services/session/service/acp';
 import { acpRuntimeManager } from '@/backend/services/session/service/acp';
-import type { SessionLifecycleWorkspaceBridge } from '@/backend/services/session/service/bridges';
+import type {
+  SessionLifecycleWorkspaceBridge,
+  SessionTaskBridge,
+} from '@/backend/services/session/service/bridges';
 import type { SessionDomainService } from '@/backend/services/session/service/session-domain.service';
 import { sessionDomainService } from '@/backend/services/session/service/session-domain.service';
 import type {
@@ -103,7 +106,10 @@ export class SessionService {
   /**
    * Configure cross-domain bridges. Called once at startup by orchestration layer.
    */
-  configure(bridges: { workspace: SessionLifecycleWorkspaceBridge }): void {
+  configure(bridges: {
+    workspace: SessionLifecycleWorkspaceBridge;
+    task?: SessionTaskBridge;
+  }): void {
     this.workspaceBridge = bridges.workspace;
     this.lifecycleService.configure(bridges);
   }

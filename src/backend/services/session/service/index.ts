@@ -13,7 +13,11 @@ export {
   runCodexAppServerAcpAdapter,
 } from './acp';
 // Bridge interfaces for orchestration layer wiring
-export type { SessionInitPolicyBridge, SessionWorkspaceBridge } from './bridges';
+export type {
+  SessionInitPolicyBridge,
+  SessionTaskBridge,
+  SessionWorkspaceBridge,
+} from './bridges';
 export type { ConnectionInfo } from './chat/chat-connection.service';
 // Chat services
 export { chatConnectionService } from './chat/chat-connection.service';

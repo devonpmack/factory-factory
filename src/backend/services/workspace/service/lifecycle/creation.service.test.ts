@@ -87,6 +87,7 @@ describe('WorkspaceCreationService', () => {
     issueProvider: 'GITHUB' as const,
     issueTrackerConfig: null,
     isArchived: false,
+    isSystem: false,
     startupScriptCommand: null,
     startupScriptPath: null,
     startupScriptTimeout: 300,

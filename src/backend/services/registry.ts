@@ -6,6 +6,9 @@ export const prismaModelNames = [
   'TerminalSession',
   'ClosedSession',
   'UserSettings',
+  'Task',
+  'TaskRepo',
+  'TaskWorkspace',
 ] as const;
 
 export type PrismaModelName = (typeof prismaModelNames)[number];
@@ -20,6 +23,7 @@ export const serviceNames = [
   'run-script',
   'settings',
   'decision-log',
+  'task',
 ] as const;
 
 export type ServiceName = (typeof serviceNames)[number];
@@ -65,5 +69,9 @@ export const serviceRegistry = {
   'decision-log': {
     dependsOn: [],
     ownsModels: ['DecisionLog'],
+  },
+  task: {
+    dependsOn: ['workspace', 'session', 'settings'],
+    ownsModels: ['Task', 'TaskRepo', 'TaskWorkspace'],
   },
 } as const satisfies Record<ServiceName, ServiceDefinition>;

@@ -16,6 +16,8 @@ import WorkspaceDetailPage from './routes/projects/workspaces/detail';
 import WorkspacesListPage from './routes/projects/workspaces/list';
 import NewWorkspacePage from './routes/projects/workspaces/new';
 import ReviewsPage from './routes/reviews';
+import TaskDetailPage from './routes/tasks/detail';
+import NewTaskPage from './routes/tasks/new';
 
 const MobileBaselinePage = lazy(() => import('./routes/mobile-baseline'));
 const isDevelopmentMode = import.meta.env.MODE === 'development';
@@ -91,6 +93,13 @@ export const router = createBrowserRouter([
               },
             ],
           },
+        ],
+      },
+      {
+        path: 'tasks',
+        children: [
+          { path: 'new', element: <NewTaskPage /> },
+          { path: ':id', element: <TaskDetailPage /> },
         ],
       },
       {

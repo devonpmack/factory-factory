@@ -1,4 +1,4 @@
-import { CircleDot, GitPullRequest, Plus, Settings, X } from 'lucide-react';
+import { CircleDot, GitPullRequest, ListTodo, Plus, Settings, X } from 'lucide-react';
 import {
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -401,6 +401,17 @@ function SidebarInner({
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/tasks/new' || pathname?.startsWith('/tasks/')}
+            >
+              <Link to="/tasks/new" onClick={onNavigate}>
+                <ListTodo className="h-4 w-4" />
+                <span>New Task</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild

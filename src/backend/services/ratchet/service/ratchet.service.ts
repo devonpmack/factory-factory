@@ -17,6 +17,7 @@ import {
 } from '@/backend/services/constants';
 import { createLogger } from '@/backend/services/logger.service';
 import { RateLimitBackoff } from '@/backend/services/rate-limit-backoff';
+import { taskRepoAccessor } from '@/backend/services/task';
 import { workspaceAccessor } from '@/backend/services/workspace';
 import { CIStatus, RatchetState } from '@/shared/core';
 import type { RatchetGitHubBridge, RatchetPRSnapshotBridge, RatchetSessionBridge } from './bridges';
@@ -50,6 +51,7 @@ import {
   shouldSkipCleanPR as shouldSkipCleanPRHelper,
 } from './ratchet-pr-state.helpers';
 import { handleReviewCommentPoll as handleReviewCommentPollHelper } from './ratchet-review-poll.helpers';
+import { checkAndDispatchTaskRatchet } from './ratchet-task.helpers';
 
 const logger = createLogger('ratchet');
 
@@ -152,6 +154,7 @@ class RatchetService extends EventEmitter {
       try {
         this.backoff.beginCycle();
         await this.checkAllWorkspaces();
+        await this.checkTaskRepos();
         this.backoff.resetIfCleanCycle(logger, 'Ratchet');
       } catch (err) {
         logger.error('Ratchet check failed', toError(err));
@@ -249,6 +252,27 @@ class RatchetService extends EventEmitter {
 
   async clearRatchetActiveSessionIfMatching(workspaceId: string, sessionId: string): Promise<void> {
     await workspaceAccessor.clearRatchetActiveSession(workspaceId, sessionId);
+  }
+
+  /** Check task repo PRs and dispatch ratchet repair to the shared task session. */
+  async checkTaskRepos(): Promise<void> {
+    if (this.isShuttingDown) {
+      return;
+    }
+    try {
+      const activeTaskRepos = await taskRepoAccessor.findActiveWithPRs();
+      if (activeTaskRepos.length === 0) {
+        return;
+      }
+
+      await checkAndDispatchTaskRatchet({
+        taskRepos: activeTaskRepos,
+        githubBridge: this.github,
+        logger,
+      });
+    } catch (err) {
+      logger.error('Task ratchet check failed', toError(err));
+    }
   }
 
   private async runWorkspaceCheckSafely(

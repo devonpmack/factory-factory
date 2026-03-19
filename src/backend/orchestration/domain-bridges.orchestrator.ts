@@ -24,6 +24,7 @@ import {
   sessionDomainService,
   sessionService,
 } from '@/backend/services/session';
+import { taskWorkspaceAccessor } from '@/backend/services/task';
 import {
   computeKanbanColumn,
   deriveWorkspaceFlowState,
@@ -192,6 +193,10 @@ export function configureDomainBridges(services: Partial<BridgeServices> = {}): 
       markSessionIdle: (wsId, sId) => workspaceActivityService.markSessionIdle(wsId, sId),
       clearRatchetActiveSessionIfMatching: (workspaceId, sessionId) =>
         ratchetService.clearRatchetActiveSessionIfMatching(workspaceId, sessionId),
+    },
+    task: {
+      getTaskRootForWorkspace: (workspaceId) =>
+        taskWorkspaceAccessor.findByWorkspaceId(workspaceId).then((tw) => tw?.taskRoot ?? null),
     },
   });
 

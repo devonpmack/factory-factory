@@ -7,7 +7,10 @@ import type {
   AcpRuntimeManager,
   PermissionPreset,
 } from '@/backend/services/session/service/acp';
-import type { SessionLifecycleWorkspaceBridge } from '@/backend/services/session/service/bridges';
+import type {
+  SessionLifecycleWorkspaceBridge,
+  SessionTaskBridge,
+} from '@/backend/services/session/service/bridges';
 import { chatConnectionService } from '@/backend/services/session/service/chat/chat-connection.service';
 import { acpTraceLogger } from '@/backend/services/session/service/logging/acp-trace-logger.service';
 import type { SessionDomainService } from '@/backend/services/session/service/session-domain.service';
@@ -86,6 +89,7 @@ export class SessionLifecycleService {
   private readonly promptTurnCompletionService: SessionPromptTurnCompletionService;
   private readonly retryService: SessionRetryService;
   private workspaceBridge: SessionLifecycleWorkspaceBridge | null = null;
+  private taskBridge: SessionTaskBridge | null = null;
 
   constructor(options: SessionLifecycleServiceDependencies) {
     this.repository = options.repository;
@@ -99,8 +103,14 @@ export class SessionLifecycleService {
     this.retryService = options.retryService;
   }
 
-  configure(bridges: { workspace: SessionLifecycleWorkspaceBridge }): void {
+  configure(bridges: {
+    workspace: SessionLifecycleWorkspaceBridge;
+    task?: SessionTaskBridge;
+  }): void {
     this.workspaceBridge = bridges.workspace;
+    if (bridges.task) {
+      this.taskBridge = bridges.task;
+    }
   }
 
   async startSession(
@@ -801,8 +811,19 @@ export class SessionLifecycleService {
     }
 
     const workspace = await this.repository.getWorkspaceById(session.workspaceId);
-    if (!workspace?.worktreePath) {
-      logger.warn('Workspace or worktree not found', {
+    if (!workspace) {
+      logger.warn('Workspace not found', { sessionId, workspaceId: session.workspaceId });
+      return null;
+    }
+
+    // Check if this workspace is a task sentinel workspace — use taskRoot as workingDir
+    const taskRoot = this.taskBridge
+      ? await this.taskBridge.getTaskRootForWorkspace(session.workspaceId)
+      : null;
+
+    const workingDir = taskRoot ?? workspace.worktreePath;
+    if (!workingDir) {
+      logger.warn('Workspace has no worktree path and is not a task workspace', {
         sessionId,
         workspaceId: session.workspaceId,
       });
@@ -852,7 +873,7 @@ export class SessionLifecycleService {
     }
 
     return {
-      workingDir: workspace.worktreePath,
+      workingDir,
       resumeProviderSessionId: session.providerSessionId ?? undefined,
       systemPrompt,
       model: session.model,

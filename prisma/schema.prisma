@@ -100,6 +100,20 @@ enum RunScriptStatus {
   FAILED     // Run script failed
 }
 
+enum TaskStatus {
+  PENDING_CONFIRMATION // Created, projects inferred, awaiting user confirmation
+  PROVISIONING         // Confirmed, worktrees being materialized
+  READY                // All worktrees ready, session running
+  FAILED               // Initialization failed
+  ARCHIVED             // Soft-deleted
+}
+
+enum TaskRepoStatus {
+  PROVISIONING
+  READY
+  FAILED
+}
+
 
 // Models
 model Project {
@@ -125,8 +139,12 @@ model Project {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  // System project flag (used for __tasks__ sentinel project)
+  isSystem          Boolean     @default(false)
+
   // Relations
   workspaces        Workspace[]
+  taskRepos         TaskRepo[]
 
   @@index([slug])
   @@index([isArchived])
@@ -315,4 +333,55 @@ model UserSettings {
   updatedAt             DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Task {
+  id                     String      @id @default(cuid())
+  name                   String
+  prompt                 String
+  status                 TaskStatus  @default(PENDING_CONFIRMATION)
+  errorMessage           String?
+  ratchetEnabled         Boolean     @default(false)
+  ratchetState           RatchetState @default(IDLE)
+  ratchetActiveSessionId String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  repos                  TaskRepo[]
+  workspace              TaskWorkspace?
+
+  @@index([status])
+}
+
+model TaskRepo {
+  id             String         @id @default(cuid())
+  taskId         String
+  task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id])
+  inferenceScore Float          @default(0)
+  worktreePath   String?
+  branchName     String?
+  status         TaskRepoStatus @default(PROVISIONING)
+  prUrl          String?
+  prNumber       Int?
+  prState        PRState        @default(NONE)
+  prCiStatus     CIStatus       @default(UNKNOWN)
+  prUpdatedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([taskId, projectId])
+  @@index([taskId])
+  @@index([projectId])
+}
+
+model TaskWorkspace {
+  id          String   @id @default(cuid())
+  taskId      String   @unique
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspaceId String   @unique  // sentinel Workspace record — session hangs off this
+  taskRoot    String            // absolute path: <base-dir>/tasks/<taskId>/
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

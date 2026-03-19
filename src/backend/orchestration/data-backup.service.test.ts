@@ -88,6 +88,7 @@ const mockProject: Project = {
   issueProvider: 'GITHUB' as const,
   issueTrackerConfig: null,
   isArchived: false,
+  isSystem: false,
   startupScriptCommand: 'npm install',
   startupScriptPath: null,
   startupScriptTimeout: 300,
