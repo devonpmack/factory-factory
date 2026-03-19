@@ -84,6 +84,7 @@ describe('WorkspaceCreationService', () => {
     defaultBranch: 'main',
     githubOwner: null,
     githubRepo: null,
+    aiDescription: null,
     issueProvider: 'GITHUB' as const,
     issueTrackerConfig: null,
     isArchived: false,

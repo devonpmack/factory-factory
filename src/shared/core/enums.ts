@@ -78,3 +78,48 @@ export const RunScriptStatus = {
   FAILED: 'FAILED',
 } as const;
 export type RunScriptStatus = (typeof RunScriptStatus)[keyof typeof RunScriptStatus];
+
+export const TaskStatus = {
+  NEW: 'NEW',
+  ROUTING: 'ROUTING',
+  AWAITING_CONFIRMATION: 'AWAITING_CONFIRMATION',
+  CONFIRMED: 'CONFIRMED',
+  MATERIALIZING: 'MATERIALIZING',
+  READY: 'READY',
+  RUNNING: 'RUNNING',
+  DONE: 'DONE',
+  FAILED: 'FAILED',
+} as const;
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
+
+export const TaskRoutingStatus = {
+  PENDING: 'PENDING',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+} as const;
+export type TaskRoutingStatus = (typeof TaskRoutingStatus)[keyof typeof TaskRoutingStatus];
+
+export const TaskRepoStatus = {
+  PENDING: 'PENDING',
+  MATERIALIZING: 'MATERIALIZING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+} as const;
+export type TaskRepoStatus = (typeof TaskRepoStatus)[keyof typeof TaskRepoStatus];
+
+export const TaskRepoMaterializationMode = {
+  WORKTREE: 'WORKTREE',
+  SYMLINK: 'SYMLINK',
+  CHECKOUT: 'CHECKOUT',
+} as const;
+export type TaskRepoMaterializationMode =
+  (typeof TaskRepoMaterializationMode)[keyof typeof TaskRepoMaterializationMode];
+
+export const TaskProjectSelectionSource = {
+  AUTO: 'AUTO',
+  USER_CONFIRMED: 'USER_CONFIRMED',
+  MANUAL: 'MANUAL',
+} as const;
+export type TaskProjectSelectionSource =
+  (typeof TaskProjectSelectionSource)[keyof typeof TaskProjectSelectionSource];

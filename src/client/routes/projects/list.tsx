@@ -24,6 +24,7 @@ function ProjectActions({
   projectName,
   startupScriptCommand,
   startupScriptPath,
+  aiDescription,
   archivePending,
   onArchive,
 }: {
@@ -31,6 +32,7 @@ function ProjectActions({
   projectName: string;
   startupScriptCommand: string | null;
   startupScriptPath: string | null;
+  aiDescription: string | null;
   archivePending: boolean;
   onArchive: () => void;
 }) {
@@ -41,6 +43,7 @@ function ProjectActions({
         projectName={projectName}
         currentStartupScriptCommand={startupScriptCommand}
         currentStartupScriptPath={startupScriptPath}
+        currentAiDescription={aiDescription}
       />
       <Tooltip>
         <TooltipTrigger asChild>
@@ -139,6 +142,7 @@ export default function ProjectsListPage() {
                     projectName={project.name}
                     startupScriptCommand={project.startupScriptCommand}
                     startupScriptPath={project.startupScriptPath}
+                    aiDescription={project.aiDescription}
                     archivePending={archiveMutation.isPending}
                     onArchive={() => {
                       setProjectToArchive(project.id);
@@ -197,6 +201,7 @@ export default function ProjectsListPage() {
                       projectName={project.name}
                       startupScriptCommand={project.startupScriptCommand}
                       startupScriptPath={project.startupScriptPath}
+                      aiDescription={project.aiDescription}
                       archivePending={archiveMutation.isPending}
                       onArchive={() => {
                         setProjectToArchive(project.id);

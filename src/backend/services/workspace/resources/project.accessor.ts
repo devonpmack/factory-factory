@@ -57,6 +57,7 @@ interface UpdateProjectInput {
   githubOwner?: string;
   githubRepo?: string;
   isArchived?: boolean;
+  aiDescription?: string | null;
   // Startup script configuration
   startupScriptCommand?: string | null;
   startupScriptPath?: string | null;

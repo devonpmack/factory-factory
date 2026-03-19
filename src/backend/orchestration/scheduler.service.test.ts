@@ -127,7 +127,7 @@ describe('SchedulerService', () => {
           id: 'ws-1',
           branchName: 'feature',
           createdAt: workspaceCreatedAt,
-          project: { githubOwner: 'org', githubRepo: 'repo' },
+          project: { githubOwner: 'org', githubRepo: 'repo', aiDescription: null },
         },
       ]);
 
@@ -168,7 +168,7 @@ describe('SchedulerService', () => {
           id: 'ws-1',
           branchName: 'feature',
           createdAt: workspaceCreatedAt,
-          project: { githubOwner: 'org', githubRepo: 'repo' },
+          project: { githubOwner: 'org', githubRepo: 'repo', aiDescription: null },
         },
       ]);
 
@@ -194,7 +194,7 @@ describe('SchedulerService', () => {
           id: 'ws-1',
           branchName: 'feature',
           createdAt: workspaceCreatedAt,
-          project: { githubOwner: 'org', githubRepo: 'repo' },
+          project: { githubOwner: 'org', githubRepo: 'repo', aiDescription: null },
         },
       ]);
 
