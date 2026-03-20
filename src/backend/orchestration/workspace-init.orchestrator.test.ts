@@ -153,6 +153,8 @@ function makeWorkspaceWithProject(overrides = {}) {
       worktreeBasePath: '/base',
       githubOwner: 'owner',
       githubRepo: 'repo',
+      aiDescription: null,
+      isSystem: false,
       startupScriptCommand: null,
       startupScriptPath: null,
     },
@@ -930,6 +932,8 @@ describe('initializeWorkspaceWorktree', () => {
           worktreeBasePath: '/base',
           githubOwner: null,
           githubRepo: null,
+          aiDescription: null,
+          isSystem: false,
         }),
       });
       setupHappyPath();

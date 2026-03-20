@@ -238,6 +238,8 @@ describe('initializeWorkspaceWorktree orchestrator', () => {
         defaultBranch: 'main',
         githubOwner: 'owner',
         githubRepo: 'repo',
+        aiDescription: null,
+        isSystem: false,
         startupScriptCommand: null,
         startupScriptPath: null,
         startupScriptTimeout: 300,

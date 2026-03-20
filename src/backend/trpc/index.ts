@@ -6,6 +6,7 @@ import { linearRouter } from './linear.trpc';
 import { prReviewRouter } from './pr-review.trpc';
 import { projectRouter } from './project.trpc';
 import { sessionRouter } from './session.trpc';
+import { taskRouter } from './task.trpc';
 import { router } from './trpc';
 import { userSettingsRouter } from './user-settings.trpc';
 import { workspaceRouter } from './workspace.trpc';
@@ -21,6 +22,7 @@ export const appRouter = router({
   userSettings: userSettingsRouter,
   github: githubRouter,
   linear: linearRouter,
+  task: taskRouter,
 });
 
 // Export type for use in frontend

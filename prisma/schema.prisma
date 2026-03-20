@@ -101,6 +101,44 @@ enum RunScriptStatus {
   FAILED     // Run script failed
 }
 
+enum TaskStatus {
+  NEW
+  ROUTING
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  MATERIALIZING
+  READY
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum TaskRoutingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum TaskRepoStatus {
+  PENDING
+  MATERIALIZING
+  READY
+  FAILED
+}
+
+enum TaskRepoMaterializationMode {
+  WORKTREE
+  SYMLINK
+  CHECKOUT
+}
+
+enum TaskProjectSelectionSource {
+  AUTO
+  USER_CONFIRMED
+  MANUAL
+}
+
 
 // Models
 model Project {
@@ -114,6 +152,9 @@ model Project {
   githubRepo        String?
   isArchived        Boolean     @default(false)
 
+  // AI-readable description of what this repo does (repo index)
+  aiDescription     String?
+
   // Issue provider configuration
   issueProvider         IssueProvider @default(NONE)
   issueTrackerConfig    Json?         // Typed blob — see IssueTrackerConfigSchema
@@ -126,11 +167,17 @@ model Project {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  // System project flag (used for __tasks__ sentinel project)
+  isSystem          Boolean     @default(false)
+
   // Relations
   workspaces        Workspace[]
+  taskProjects      TaskProject[]
+  taskRepos         TaskRepo[]
 
   @@index([slug])
   @@index([isArchived])
+  @@index([githubOwner])
 }
 
 model DecisionLog {
@@ -316,4 +363,128 @@ model UserSettings {
   updatedAt             DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Multi-project task models
+
+model Task {
+  id                String       @id @default(cuid())
+  title             String?
+  prompt            String
+  status            TaskStatus   @default(NEW)
+
+  // Routing
+  routingStatus     TaskRoutingStatus @default(PENDING)
+  routingSummary    String?
+  planningNotes     String?
+
+  // Confirmation
+  confirmedAt       DateTime?
+
+  // Aggregate workspace root path
+  rootPath          String?
+
+  // Session linkage
+  primarySessionId  String?
+
+  // Ratchet integration
+  ratchetEnabled           Boolean       @default(false)
+  ratchetActiveSessionId   String?
+  ratchetCurrentActivity   String?
+  ratchetStateUpdatedAt    DateTime?
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Relations
+  taskProjects      TaskProject[]
+  taskRepos         TaskRepo[]
+  workspace         TaskWorkspace?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TaskWorkspace {
+  id          String   @id @default(cuid())
+  taskId      String   @unique
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspaceId String   @unique
+  taskRoot    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TaskProject {
+  id               String                    @id @default(cuid())
+  taskId           String
+  task             Task                      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project                   @relation(fields: [projectId], references: [id])
+
+  selectionSource  TaskProjectSelectionSource @default(AUTO)
+  confidenceScore  Float?
+  reasonSummary    String?
+
+  createdAt        DateTime                  @default(now())
+
+  @@unique([taskId, projectId])
+  @@index([taskId])
+  @@index([projectId])
+}
+
+model TaskRepo {
+  id                     String                        @id @default(cuid())
+  taskId                 String
+  task                   Task                          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId              String
+  project                Project                       @relation(fields: [projectId], references: [id])
+
+  mountPath              String?
+  branchName             String?
+  materializationMode    TaskRepoMaterializationMode   @default(WORKTREE)
+  status                 TaskRepoStatus                @default(PENDING)
+  errorMessage           String?
+
+  // Per-repo PR tracking
+  prNumber               Int?
+  prUrl                  String?
+  prState                PRState                       @default(NONE)
+  prCiStatus             CIStatus                      @default(UNKNOWN)
+  prReviewState          String?
+  prLastCheckedAt        DateTime?
+
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+
+  pullRequests           TaskRepoPullRequest[]
+
+  @@unique([taskId, projectId])
+  @@index([taskId])
+}
+
+model TaskRepoPullRequest {
+  id                     String       @id @default(cuid())
+  taskRepoId             String
+  taskRepo               TaskRepo     @relation(fields: [taskRepoId], references: [id], onDelete: Cascade)
+
+  provider               String       @default("github")
+  repoOwner              String
+  repoName               String
+  prNumber               Int
+  prUrl                  String
+  prState                PRState      @default(NONE)
+  prCiStatus             CIStatus     @default(UNKNOWN)
+  prReviewState          String?
+  lastReviewCommentId    String?
+  lastCiRunId            String?
+  ratchetState           RatchetState @default(IDLE)
+  ratchetLastCheckedAt   DateTime?
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([taskRepoId, prNumber])
+  @@index([taskRepoId])
+  @@index([ratchetState])
 }

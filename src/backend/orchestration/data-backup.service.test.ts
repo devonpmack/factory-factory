@@ -85,6 +85,8 @@ const mockProject: Project = {
   defaultBranch: 'main',
   githubOwner: 'test-owner',
   githubRepo: 'test-repo',
+  aiDescription: null,
+  isSystem: false,
   issueProvider: 'GITHUB' as const,
   issueTrackerConfig: null,
   isArchived: false,

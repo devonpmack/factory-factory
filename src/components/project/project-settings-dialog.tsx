@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProjectSettingsDialogProps {
@@ -22,6 +23,7 @@ interface ProjectSettingsDialogProps {
   projectName: string;
   currentStartupScriptCommand?: string | null;
   currentStartupScriptPath?: string | null;
+  currentAiDescription?: string | null;
 }
 
 export function ProjectSettingsDialog({
@@ -29,10 +31,12 @@ export function ProjectSettingsDialog({
   projectName,
   currentStartupScriptCommand,
   currentStartupScriptPath,
+  currentAiDescription,
 }: ProjectSettingsDialogProps) {
   const [open, setOpen] = useState(false);
   const [startupScript, setStartupScript] = useState('');
   const [scriptType, setScriptType] = useState<ScriptType>('command');
+  const [aiDescription, setAiDescription] = useState('');
   const [error, setError] = useState('');
 
   const utils = trpc.useUtils();
@@ -48,25 +52,26 @@ export function ProjectSettingsDialog({
     },
   });
 
-  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      // Determine initial values based on which script type is configured
       const hasPath = Boolean(currentStartupScriptPath);
       setScriptType(hasPath ? 'path' : 'command');
       setStartupScript(currentStartupScriptPath ?? currentStartupScriptCommand ?? '');
+      setAiDescription(currentAiDescription ?? '');
       setError('');
     }
-  }, [open, currentStartupScriptCommand, currentStartupScriptPath]);
+  }, [open, currentStartupScriptCommand, currentStartupScriptPath, currentAiDescription]);
 
   const handleSave = () => {
     setError('');
     const trimmedScript = startupScript.trim();
+    const trimmedDescription = aiDescription.trim();
 
     updateProject.mutate({
       id: projectId,
       startupScriptCommand: scriptType === 'command' ? trimmedScript || null : null,
       startupScriptPath: scriptType === 'path' ? trimmedScript || null : null,
+      aiDescription: trimmedDescription || null,
     });
   };
 
@@ -94,6 +99,21 @@ export function ProjectSettingsDialog({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          <div className="space-y-3">
+            <Label>Repo Description (AI Index)</Label>
+            <p className="text-xs text-muted-foreground">
+              Describe what this repo does. Used by the task routing system to match prompts to
+              repos.
+            </p>
+            <Textarea
+              value={aiDescription}
+              onChange={(e) => setAiDescription(e.target.value)}
+              placeholder="e.g., React frontend for the billing dashboard. Contains payment UI, subscription management, and invoice views."
+              rows={3}
+              className="resize-none"
+            />
+          </div>
 
           <div className="space-y-3">
             <Label>Startup Script</Label>

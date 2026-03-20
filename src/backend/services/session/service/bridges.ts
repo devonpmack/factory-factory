@@ -26,6 +26,11 @@ export interface SessionLifecycleWorkspaceBridge {
   clearRatchetActiveSessionIfMatching(workspaceId: string, sessionId: string): Promise<void>;
 }
 
+/** Task bridge: resolves taskRoot when a workspace is a sentinel task workspace */
+export interface SessionTaskBridge {
+  getTaskRootForWorkspace(workspaceId: string): Promise<string | null>;
+}
+
 /** Workspace init policy callback needed by session domain */
 export interface SessionInitPolicyBridge {
   getWorkspaceInitPolicy(input: SessionInitPolicyInput): SessionInitPolicyResult;

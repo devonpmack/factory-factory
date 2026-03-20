@@ -249,6 +249,7 @@ export const projectRouter = router({
         defaultBranch: z.string().optional(),
         githubOwner: z.string().optional(),
         githubRepo: z.string().optional(),
+        aiDescription: z.string().nullable().optional(),
         // Startup script configuration
         startupScriptCommand: z.string().nullable().optional(),
         startupScriptPath: z.string().nullable().optional(),

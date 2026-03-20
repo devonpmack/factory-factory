@@ -13,6 +13,11 @@ export {
   RatchetState,
   RunScriptStatus,
   SessionStatus,
+  TaskProjectSelectionSource,
+  TaskRepoMaterializationMode,
+  TaskRepoStatus,
+  TaskRoutingStatus,
+  TaskStatus,
   WorkspaceCreationSource,
   WorkspaceStatus,
 } from './enums.js';

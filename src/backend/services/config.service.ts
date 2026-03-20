@@ -453,6 +453,13 @@ class ConfigService {
   }
 
   /**
+   * Get tasks directory for multi-repo task aggregate roots
+   */
+  getTasksDir(): string {
+    return join(this.config.baseDir, 'tasks');
+  }
+
+  /**
    * Get debug log directory
    */
   getDebugLogDir(): string {
