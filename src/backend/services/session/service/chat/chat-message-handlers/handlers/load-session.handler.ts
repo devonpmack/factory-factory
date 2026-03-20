@@ -12,8 +12,13 @@ import { codexSessionHistoryLoaderService } from '@/backend/services/session/ser
 import { claudeSessionHistoryLoaderService } from '@/backend/services/session/service/data/session-history-loader.service';
 import { sessionService } from '@/backend/services/session/service/lifecycle/session.service';
 import { sessionDomainService } from '@/backend/services/session/service/session-domain.service';
+import {
+  skillDiscoveryService,
+  toCommandInfo,
+} from '@/backend/services/session/service/skills/skill-discovery.service';
 import { buildTranscriptFromHistory } from '@/backend/services/session/service/store/session-transcript';
 import { slashCommandCacheService } from '@/backend/services/session/service/store/slash-command-cache.service';
+import type { CommandInfo } from '@/shared/acp-protocol';
 import type { LoadSessionMessage } from '@/shared/websocket';
 
 const logger = createLogger('load-session-handler');
@@ -61,7 +66,11 @@ export function createLoadSessionHandler(
       });
     }
 
-    await sendCachedSlashCommandsIfNeeded(sessionId, dbSession.provider);
+    await sendCachedSlashCommandsIfNeeded(
+      sessionId,
+      dbSession.provider,
+      dbSession.workspace.worktreePath
+    );
 
     // Auto-enqueue initial message if one was stored during session creation
     await enqueueInitialMessageIfPresent(sessionId, deps);
@@ -197,16 +206,25 @@ async function enqueueInitialMessageIfPresent(
 
 async function sendCachedSlashCommandsIfNeeded(
   sessionId: string,
-  provider: 'CLAUDE' | 'CODEX'
+  provider: 'CLAUDE' | 'CODEX',
+  worktreePath: string | null
 ): Promise<void> {
   const cached = await slashCommandCacheService.getCachedCommands(provider);
-  if (!cached || cached.length === 0) {
+  const skillCommands = worktreePath
+    ? toCommandInfo(await skillDiscoveryService.discoverSkills(worktreePath))
+    : [];
+
+  const nativeCommands: CommandInfo[] = cached ?? [];
+  const nativeNames = new Set(nativeCommands.map((c) => c.name));
+  const deduped = skillCommands.filter((s) => !nativeNames.has(s.name));
+  const merged = [...nativeCommands, ...deduped];
+
+  if (merged.length === 0) {
     return;
   }
 
-  const slashCommandsMsg = {
+  sessionDomainService.emitDelta(sessionId, {
     type: 'slash_commands',
-    slashCommands: cached,
-  } as const;
-  sessionDomainService.emitDelta(sessionId, slashCommandsMsg);
+    slashCommands: merged,
+  } as const);
 }

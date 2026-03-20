@@ -1,10 +1,12 @@
 /**
- * Information about a slash command reported by the ACP runtime.
+ * Information about a slash command reported by the ACP runtime or discovered from skills.
  */
 export interface CommandInfo {
   name: string;
   description: string;
   argumentHint?: string;
+  /** Where this command originated. Defaults to 'native' (from the ACP runtime). */
+  source?: 'native' | 'skill';
 }
 
 /**
