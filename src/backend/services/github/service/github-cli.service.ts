@@ -607,8 +607,13 @@ class GitHubCLIService {
 
       return parseGhJson(issueSchema.array(), stdout, 'listIssues');
     } catch (error) {
-      const errorType = classifyError(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes('has disabled issues')) {
+        return [];
+      }
+
+      const errorType = classifyError(error);
 
       logger.error('Failed to list issues via gh CLI', {
         owner,

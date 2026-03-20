@@ -219,6 +219,7 @@ export function ProjectIssueTrackingCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={IssueProvider.NONE}>None</SelectItem>
                 <SelectItem value={IssueProvider.GITHUB}>GitHub Issues</SelectItem>
                 <SelectItem value={IssueProvider.LINEAR}>Linear Issues</SelectItem>
               </SelectContent>

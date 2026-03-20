@@ -64,6 +64,7 @@ export type WorkspaceCreationSource =
   (typeof WorkspaceCreationSource)[keyof typeof WorkspaceCreationSource];
 
 export const IssueProvider = {
+  NONE: 'NONE',
   GITHUB: 'GITHUB',
   LINEAR: 'LINEAR',
 } as const;

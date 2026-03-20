@@ -17,11 +17,12 @@ export function useSidebarIssues(
   serverWorkspaces: ServerWorkspace[] | undefined
 ): { issues: NormalizedIssue[] | undefined; isLoading: boolean } {
   const isLinear = issueProvider === 'LINEAR';
+  const isGithub = issueProvider === 'GITHUB';
 
   const { data: githubData, isLoading: isLoadingGithub } =
     trpc.github.listIssuesForProject.useQuery(
       { projectId: projectId ?? '' },
-      { refetchInterval: 60_000, staleTime: 30_000, enabled: !!projectId && !isLinear }
+      { refetchInterval: 60_000, staleTime: 30_000, enabled: !!projectId && isGithub }
     );
 
   const { data: linearData, isLoading: isLoadingLinear } =

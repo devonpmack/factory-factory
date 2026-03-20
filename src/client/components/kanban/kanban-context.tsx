@@ -101,6 +101,7 @@ export function KanbanProvider({
 }: KanbanProviderProps) {
   const utils = trpc.useUtils();
   const isLinear = issueProvider === 'LINEAR';
+  const isGithub = issueProvider === 'GITHUB';
 
   const {
     data: workspaces,
@@ -125,7 +126,7 @@ export function KanbanProvider({
     refetch: refetchGithubIssues,
   } = trpc.github.listIssuesForProject.useQuery(
     { projectId },
-    { refetchInterval: 60_000, staleTime: 30_000, enabled: !isLinear }
+    { refetchInterval: 60_000, staleTime: 30_000, enabled: isGithub }
   );
 
   // Linear issues — enabled only when provider is Linear

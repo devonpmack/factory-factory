@@ -254,7 +254,9 @@ export const projectRouter = router({
         startupScriptPath: z.string().nullable().optional(),
         startupScriptTimeout: z.number().min(1).max(3600).optional(),
         // Issue provider configuration
-        issueProvider: z.enum([IssueProvider.GITHUB, IssueProvider.LINEAR]).optional(),
+        issueProvider: z
+          .enum([IssueProvider.NONE, IssueProvider.GITHUB, IssueProvider.LINEAR])
+          .optional(),
         issueTrackerConfig: IssueTrackerConfigSchema.nullable().optional(),
       })
     )

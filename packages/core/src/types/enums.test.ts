@@ -74,7 +74,7 @@ describe('domain enums', () => {
   });
 
   it('IssueProvider has all expected values', () => {
-    expect(Object.values(IssueProvider)).toEqual(['GITHUB', 'LINEAR']);
+    expect(Object.values(IssueProvider)).toEqual(['NONE', 'GITHUB', 'LINEAR']);
   });
 
   it('RunScriptStatus has all expected values', () => {

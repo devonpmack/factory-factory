@@ -87,6 +87,7 @@ enum WorkspaceCreationSource {
 }
 
 enum IssueProvider {
+  NONE
   GITHUB
   LINEAR
 }
@@ -114,7 +115,7 @@ model Project {
   isArchived        Boolean     @default(false)
 
   // Issue provider configuration
-  issueProvider         IssueProvider @default(GITHUB)
+  issueProvider         IssueProvider @default(NONE)
   issueTrackerConfig    Json?         // Typed blob — see IssueTrackerConfigSchema
 
   // Startup script configuration
